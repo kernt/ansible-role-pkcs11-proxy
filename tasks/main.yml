@@ -1,0 +1,102 @@
+---
+# tasks file for ansible-role-pkcs11-proxy
+
+- name: Update the repository cache and install apt packages
+  become: yes
+  apt:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  with_items: "{{ pkcs11proxy_apt_packages }}"
+
+- name: Clone pkcs11-proxy git repository
+  git:
+    repo: "{{ pkcs11proxy_git_repo }}"
+    dest: /tmp/pkcs11-proxy
+
+- name: Compile pkcs11-proxy
+  shell: "cmake CMakeLists.txt"
+  args:
+    chdir: /tmp/pkcs11-proxy
+  changed_when: False
+
+- name: Install pkcs11-proxy
+  become: yes
+  make:
+    target: install
+    chdir: "/tmp/pkcs11-proxy"
+  changed_when: False
+
+- name: Create {{ pkcs11proxy_group }} group
+  become: yes
+  group:
+    name: "{{ pkcs11proxy_group }}"
+    system: yes
+    state: present
+  when: pkcs11proxy_server
+
+- name: Create {{ pkcs11proxy_user }} user
+  become: yes
+  user:
+    name: "{{ pkcs11proxy_user }}"
+    shell: /bin/false
+    createhome: no
+    groups: "{{ pkcs11proxy_group }}"
+    system: yes
+    state: present
+  when: pkcs11proxy_server
+
+- name: Configuring /etc/environment variables
+  become: yes
+  lineinfile:
+    dest: /etc/environment
+    line: "{{ item.key }}='{{ item.value }}'"
+  when: pkcs11proxy_client_environment_config is defined
+  with_dict: "{{ pkcs11proxy_environment_config }}"
+  when: not pkcs11proxy_server
+
+- name: Configuring ~/.profile variables
+  become: yes
+  lineinfile:
+    dest: ~/.profile
+    line: "{{ item.key }}='{{ item.value }}'"
+  when: pkcs11proxy_server_environment_config is defined
+  with_dict: "{{ pkcs11proxy_server_environment_config }}"
+  when: pkcs11proxy_server
+
+- name: Create config directory
+  file:
+    path: "{{ pkcs11proxy_config_directory }}"
+    state: directory
+    mode: 0755
+  when: pkcs11proxy_server
+
+- name: Create pkcs11-proxy server environment file
+  become: yes
+  template:
+    src: pkcs11-proxy.env.j2
+    dest: "{{ pkcs11proxy_config_directory }}/pkcs11-proxy.env"
+    owner: "{{ pkcs11proxy_user }}"
+    group: "{{ pkcs11proxy_group }}"
+    mode: 0644
+  when: ansible_service_mgr == "systemd" and pkcs11proxy_server
+
+# run as a service
+- name: Create {{ pkcs11proxy_service_name }} systemd configuration
+  become: yes
+  template:
+    src: pkcs11-daemon.service.j2
+    dest: /lib/systemd/system/pkcs11-daemon.service
+    owner: "{{ pkcs11proxy_user }}"
+    group: "{{ pkcs11proxy_group }}"
+    mode: 0644
+  when: ansible_service_mgr == "systemd" and pkcs11proxy_server
+
+- name: Ensure {{ pkcs11proxy_service_name }} service is started and enabled on boot
+  become: yes
+  systemd:
+    name: "{{ pkcs11proxy_service_name }}"
+    state: restarted
+    daemon_reload: yes
+    enabled: yes
+  when: pkcs11proxy_server

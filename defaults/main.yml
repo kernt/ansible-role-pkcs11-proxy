@@ -1,0 +1,40 @@
+---
+# defaults file for ansible-role-pkcs11-proxy
+
+pkcs11proxy_git_repo: https://github.com/viralpoetry/pkcs11-proxy.git
+
+pkcs11proxy_install_dir: /usr/local/bin
+pkcs11proxy_pid_file: /var/run/pkcs11-daemon.pid
+pkcs11proxy_user: root #FIXME
+pkcs11proxy_group: root #FIXME
+pkcs11proxy_service_name: pkcs11-daemon
+pkcs11proxy_config_directory: /etc/sysconfig
+
+# by default server is installed
+pkcs11proxy_server: true
+
+# change this to your pkcs11 module, e.g. '/usr/lib/opensc-pkcs11.so'
+# or '/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so' for SoftHSM2
+pkcs11_module: '/path/to/pkcs11.so'
+
+pkcs11proxy_apt_packages:
+  - git
+  - cmake
+  - libssl-dev
+  - libseccomp-dev
+
+# client use this for connection
+pkcs11proxy_server_ip: "1.2.3.4"
+pkcs11proxy_server_port: 2345
+
+# internal to the server
+pkcs11proxy_ip: "0.0.0.0"
+pkcs11proxy_port: 2345
+
+# etc/environment
+pkcs11proxy_server_environment_config:
+  PKCS11_DAEMON_SOCKET: "tcp://{{ pkcs11proxy_ip }}:{{ pkcs11proxy_port }}"
+
+# etc/environment
+pkcs11proxy_client_environment_config:
+  PKCS11_PROXY_SOCKET: "tcp://{{ pkcs11proxy_server_ip }}:{{ pkcs11proxy_server_port }}"

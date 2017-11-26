@@ -1,0 +1,16 @@
+[Unit]
+Description=pkcs11-daemon service
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=-{{ pkcs11proxy_config_directory }}/pkcs11-proxy.env
+Restart=on-failure
+PIDFile={{ pkcs11proxy_pid_file }}
+Type=simple
+User={{ pkcs11proxy_user }}
+Group={{ pkcs11proxy_group }}
+ExecStart={{ pkcs11proxy_install_dir }}/{{ pkcs11proxy_service_name }} {{ pkcs11_module }}
+
+[Install]
+WantedBy=multi-user.target
